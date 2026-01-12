@@ -1,6 +1,8 @@
 # Automated Reporting and Workflow System
 
-An internal reporting automation tool for teams that rely on manual reporting, spreadsheets, and recurring weekly/monthly updates. This system automates SQL report execution, scheduling, and distribution, reducing manual effort by nearly 30% through repeatable workflows and standardized outputs.
+**An internal reporting automation service that runs scheduled SQL reports, tracks execution history, and exposes results through APIs with an optional lightweight UI for operational visibility.**
+
+This system automates SQL report execution, scheduling, and distribution, reducing manual effort by nearly 30% through repeatable workflows and standardized outputs.
 
 ## Business Problem
 
@@ -34,36 +36,110 @@ The Automated Reporting and Workflow System transforms manual reporting into an 
 - **Containerization**: Docker, Docker Compose
 - **API Documentation**: FastAPI auto-generated Swagger/OpenAPI docs
 
-## Architecture
+## Architecture Breakdown
 
-The system follows a clean, service-oriented architecture:
+### 1) Backend Service (Mandatory - 90% of Value)
+
+**This is the core of the system.** The backend service is where 90% of the value resides.
+
+**What the backend does:**
+- Stores report definitions
+- Executes SQL queries
+- Schedules runs
+- Tracks success or failure
+- Generates outputs (CSV)
+- Sends notifications
+- Exposes run history via REST API
+
+**Tech Stack:**
+- Python + FastAPI
+- PostgreSQL
+- APScheduler
+- Docker
+
+**If you stopped here, it is already a valid enterprise system.**
+
+### 2) Automation Engine (Part of Backend)
+
+**This is not separate.** The automation logic lives inside the backend:
+
+- **Scheduler** triggers jobs based on cron schedules
+- **Runner** executes workflows (SQL → CSV export)
+- **Results** are persisted to database
+
+From an engineering perspective, this is **backend automation, not scripting**.
+
+### 3) Frontend (Optional but Recommended)
+
+The frontend is **not required**, but adding a small one helps demonstrate integration.
+
+**What the frontend is for:**
+- View list of reports
+- See last run status
+- Download outputs
+- Trigger a run manually
+
+**That's it.** No charts. No fancy visuals. No analytics UI.
+
+### Implementation Path: Option A (Recommended)
+
+**Backend + Minimal UI** - This is what this implementation provides:
+
+- Backend does everything (90% of value)
+- Simple HTML/JavaScript UI
+- Just enough to demonstrate integration
+- Shows backend engineering, data workflows, automation, API design, and basic UI integration
+- Realistic enterprise thinking without unnecessary complexity
+
+**What we built:**
+- ✅ Backend service (FastAPI)
+- ✅ Scheduler (APScheduler)
+- ✅ Database (PostgreSQL)
+- ✅ CSV export
+- ✅ Run history tracking
+- ✅ Simple UI page with reports list, last run status, and download buttons
+
+**What we did NOT build (intentionally):**
+- ❌ Charts
+- ❌ BI dashboards
+- ❌ Login/Authentication
+- ❌ Multi-tenant auth
+- ❌ ML features
+
+### Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      FastAPI Application                      │
+│                    Backend Service (Core)                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
 │  │  Reports API │  │   Runs API   │  │  Health API  │      │
 │  └──────────────┘  └──────────────┘  └──────────────┘      │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐ │
+│  │         Automation Engine (Inside Backend)            │ │
+│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐           │ │
+│  │  │Scheduler │→ │  Runner  │→ │ Exporter │           │ │
+│  │  └──────────┘  └──────────┘  └──────────┘           │ │
+│  │         │            │            │                   │ │
+│  │         └────────────┴────────────┘                   │ │
+│  │                    │                                   │ │
+│  │              ┌─────▼─────┐                            │ │
+│  │              │ Notifier  │                            │ │
+│  │              └───────────┘                            │ │
+│  └──────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────┘
+                            │
                             │
         ┌───────────────────┼───────────────────┐
         │                   │                   │
-┌───────▼────────┐  ┌──────▼────────┐  ┌──────▼────────┐
-│   Scheduler    │  │     Runner    │  │   Exporter    │
-│  (APScheduler) │  │   Service     │  │    Service    │
-└───────┬────────┘  └──────┬────────┘  └──────┬────────┘
-        │                   │                   │
-        │         ┌─────────▼─────────┐         │
-        │         │   Notifier        │         │
-        │         │   Service         │         │
-        │         └─────────┬─────────┘         │
-        │                   │                   │
-┌───────▼───────────────────▼───────────────────▼────────┐
-│              PostgreSQL Database                        │
-│  ┌──────────┐  ┌────────────┐  ┌──────────────────┐  │
-│  │ Reports  │  │ ReportRuns │  │ NotificationLog  │  │
-│  └──────────┘  └────────────┘  └──────────────────┘  │
-└────────────────────────────────────────────────────────┘
+┌───────▼────────┐  ┌───────▼────────┐  ┌──────▼────────┐
+│  PostgreSQL    │  │  CSV Outputs   │  │  Minimal UI   │
+│   Database     │  │   (outputs/)   │  │  (Optional)   │
+│                │  │                │  │               │
+│  - Reports     │  │  - Timestamped │  │  - List       │
+│  - ReportRuns  │  │    CSV files   │  │  - Status     │
+│  - Notifications│  │                │  │  - Download   │
+└────────────────┘  └────────────────┘  └───────────────┘
 ```
 
 ### Execution Flow
@@ -309,12 +385,13 @@ This system is ideal for:
 
 ## Future Enhancements
 
-- Email notifications via SMTP
-- JSON export format support
-- Web UI for report management
+- Email notifications via SMTP (currently log-based)
+- JSON export format support (currently CSV only)
 - Data quality checks (row count thresholds)
 - Retry mechanism for failed runs
 - Report templates and parameterized queries
+
+**Note:** The minimal UI is already implemented. We intentionally did not build charts, BI dashboards, authentication, or multi-tenant features to keep the system focused and enterprise-appropriate.
 
 ## License
 
