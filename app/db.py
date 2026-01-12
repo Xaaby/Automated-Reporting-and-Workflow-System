@@ -6,14 +6,25 @@ import os
 import logging
 from dotenv import load_dotenv
 
+# Configure logging first
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 load_dotenv()
 
 # Get database URL from environment
 # Default to SQLite for easy testing (no PostgreSQL required)
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite:///./reporting.db"  # SQLite database file in project root
-)
+# Force SQLite if DATABASE_URL is not explicitly set or if it's set to PostgreSQL
+env_db_url = os.getenv("DATABASE_URL", "")
+if not env_db_url or env_db_url.startswith("postgresql"):
+    # Use SQLite by default (no PostgreSQL required)
+    DATABASE_URL = "sqlite:///./reporting.db"
+    logger.info(f"Using SQLite database: {DATABASE_URL}")
+    if env_db_url.startswith("postgresql"):
+        logger.warning(f"PostgreSQL URL detected in environment, but using SQLite instead. To use PostgreSQL, ensure it's running and set DATABASE_URL correctly.")
+else:
+    DATABASE_URL = env_db_url
+    logger.info(f"Using database: {DATABASE_URL}")
 
 # Create engine with connection pooling
 # SQLite requires check_same_thread=False for FastAPI

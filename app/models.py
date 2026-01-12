@@ -9,6 +9,10 @@ from app.db import Base
 # Use String for UUID to be compatible with both PostgreSQL and SQLite
 # SQLite doesn't have native UUID support, so we store as string
 
+def generate_uuid():
+    """Generate a UUID string for use as default in models"""
+    return str(uuid.uuid4())
+
 
 class RunStatus(str, enum.Enum):
     QUEUED = "QUEUED"
@@ -30,7 +34,7 @@ class NotificationStatus(str, enum.Enum):
 class Report(Base):
     __tablename__ = "reports"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     sql_query = Column(Text, nullable=False)
@@ -49,7 +53,7 @@ class Report(Base):
 class ReportRun(Base):
     __tablename__ = "report_runs"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     report_id = Column(String(36), ForeignKey("reports.id"), nullable=False)
     started_at = Column(DateTime, nullable=False)
     finished_at = Column(DateTime, nullable=True)
@@ -69,7 +73,7 @@ class ReportRun(Base):
 class NotificationLog(Base):
     __tablename__ = "notification_log"
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    id = Column(String(36), primary_key=True, default=generate_uuid)
     report_run_id = Column(String(36), ForeignKey("report_runs.id"), nullable=False)
     channel = Column(String(20), nullable=False)
     sent_at = Column(DateTime, server_default=func.now())

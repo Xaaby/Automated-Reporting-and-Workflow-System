@@ -14,17 +14,23 @@ logger = logging.getLogger(__name__)
 scheduler = BackgroundScheduler()
 
 
-def trigger_report(report_id: UUID):
+def trigger_report(report_id):
     """
     Trigger a report execution (called by scheduler).
     
     Args:
-        report_id: UUID of the report to execute
+        report_id: UUID string of the report to execute
     """
     db = SessionLocal()
     try:
         logger.info(f"Triggering report execution for report_id: {report_id}")
-        execute_report(db, report_id)
+        # Convert string to UUID if needed, or use string directly
+        from uuid import UUID as UUIDType
+        if isinstance(report_id, str):
+            report_id_uuid = report_id
+        else:
+            report_id_uuid = str(report_id)
+        execute_report(db, report_id_uuid)
     except Exception as e:
         logger.error(f"Error executing report {report_id}: {str(e)}")
     finally:
@@ -39,6 +45,11 @@ def schedule_report(report: Report):
         report: Report model instance
     """
     try:
+        # Ensure scheduler is running
+        if not scheduler.running:
+            logger.warning("Scheduler is not running. Starting scheduler...")
+            scheduler.start()
+        
         # Parse cron expression (format: "minute hour day month day_of_week")
         cron_parts = report.schedule_cron.split()
         if len(cron_parts) != 5:
@@ -70,6 +81,7 @@ def schedule_report(report: Report):
         
     except Exception as e:
         logger.error(f"Error scheduling report {report.id}: {str(e)}")
+        # Don't re-raise - let report creation succeed even if scheduling fails
 
 
 def load_and_schedule_reports():

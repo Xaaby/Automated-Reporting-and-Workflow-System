@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
-from typing import List
-from uuid import UUID
+from typing import List, Optional
 from pydantic import BaseModel
 import os
 
@@ -15,21 +14,21 @@ router = APIRouter(prefix="/api", tags=["runs"])
 
 # Pydantic models for response
 class ReportRunResponse(BaseModel):
-    id: UUID
-    report_id: UUID
+    id: str  # Changed from UUID to str for SQLite compatibility
+    report_id: str  # Changed from UUID to str for SQLite compatibility
     started_at: str
-    finished_at: str = None
+    finished_at: Optional[str] = None
     status: str
-    row_count: int = None
-    output_path: str = None
-    error_message: str = None
+    row_count: Optional[int] = None
+    output_path: Optional[str] = None
+    error_message: Optional[str] = None
 
     class Config:
         from_attributes = True
 
 
 @router.post("/reports/{report_id}/run", response_model=ReportRunResponse, status_code=status.HTTP_201_CREATED)
-def trigger_manual_run(report_id: UUID, db: Session = Depends(get_db)):
+def trigger_manual_run(report_id: str, db: Session = Depends(get_db)):  # Changed from UUID to str
     """
     Trigger a manual run of a report.
     """
@@ -44,13 +43,23 @@ def trigger_manual_run(report_id: UUID, db: Session = Depends(get_db)):
         
         # Execute the report
         report_run = execute_report(db, report_id)
-        return report_run
+        # Convert to response format manually to ensure proper serialization
+        return ReportRunResponse(
+            id=str(report_run.id),
+            report_id=str(report_run.report_id),
+            started_at=report_run.started_at.isoformat() if report_run.started_at else "",
+            finished_at=report_run.finished_at.isoformat() if report_run.finished_at else None,
+            status=report_run.status if isinstance(report_run.status, str) else report_run.status.value,
+            row_count=report_run.row_count,
+            output_path=report_run.output_path,
+            error_message=report_run.error_message
+        )
     except HTTPException:
         raise
     except Exception as e:
         error_msg = str(e)
         if "connection" in error_msg.lower() or "database" in error_msg.lower():
-            error_msg = f"Database connection error: {error_msg}. Please ensure PostgreSQL is running and connected."
+            error_msg = f"Database connection error: {error_msg}. Please check your database configuration."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_msg
@@ -59,7 +68,7 @@ def trigger_manual_run(report_id: UUID, db: Session = Depends(get_db)):
 
 @router.get("/reports/{report_id}/runs", response_model=List[ReportRunResponse])
 def get_report_runs(
-    report_id: UUID,
+    report_id: str,  # Changed from UUID to str
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db)
@@ -85,18 +94,31 @@ def get_report_runs(
             .all()
         )
         
-        return runs
+        # Convert to response format manually to ensure proper serialization
+        return [
+            ReportRunResponse(
+                id=str(r.id),
+                report_id=str(r.report_id),
+                started_at=r.started_at.isoformat() if r.started_at else "",
+                finished_at=r.finished_at.isoformat() if r.finished_at else None,
+                status=r.status if isinstance(r.status, str) else r.status.value,
+                row_count=r.row_count,
+                output_path=r.output_path,
+                error_message=r.error_message
+            )
+            for r in runs
+        ]
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Database error: {str(e)}. Please ensure PostgreSQL is running and connected."
+            detail=f"Database error: {str(e)}. Please check your database configuration."
         )
 
 
 @router.get("/runs/{run_id}", response_model=ReportRunResponse)
-def get_run_details(run_id: UUID, db: Session = Depends(get_db)):
+def get_run_details(run_id: str, db: Session = Depends(get_db)):  # Changed from UUID to str
     """
     Get details of a specific run.
     """
@@ -107,11 +129,21 @@ def get_run_details(run_id: UUID, db: Session = Depends(get_db)):
             detail=f"Run with id {run_id} not found"
         )
     
-    return run
+    # Convert to response format manually to ensure proper serialization
+    return ReportRunResponse(
+        id=str(run.id),
+        report_id=str(run.report_id),
+        started_at=run.started_at.isoformat() if run.started_at else "",
+        finished_at=run.finished_at.isoformat() if run.finished_at else None,
+        status=run.status if isinstance(run.status, str) else run.status.value,
+        row_count=run.row_count,
+        output_path=run.output_path,
+        error_message=run.error_message
+    )
 
 
 @router.get("/runs/{run_id}/download")
-def download_run_output(run_id: UUID, db: Session = Depends(get_db)):
+def download_run_output(run_id: str, db: Session = Depends(get_db)):  # Changed from UUID to str
     """
     Download the CSV output file for a specific run.
     """

@@ -14,7 +14,6 @@ def check_dependencies():
         import fastapi
         import uvicorn
         import sqlalchemy
-        import psycopg2
         import apscheduler
         print("✓ All dependencies are installed")
         return True
@@ -34,8 +33,8 @@ def check_database():
             return True
     except Exception as e:
         print(f"✗ Database connection failed: {str(e)}")
-        print("\nPlease ensure PostgreSQL is running and DATABASE_URL is set correctly.")
-        print("Default: postgresql://reporting_user:reporting_pass@localhost:5432/reporting_db")
+        print("\nPlease check your DATABASE_URL configuration.")
+        print("Default (SQLite): sqlite:///./reporting.db")
         return False
 
 def main():
@@ -57,9 +56,10 @@ def main():
     print()
     
     # Set environment variables if not set
+    # Default to SQLite for easy local development (no PostgreSQL required)
     if not os.getenv("DATABASE_URL"):
-        os.environ["DATABASE_URL"] = "postgresql://reporting_user:reporting_pass@localhost:5432/reporting_db"
-        print("Using default DATABASE_URL")
+        os.environ["DATABASE_URL"] = "sqlite:///./reporting.db"
+        print("Using default DATABASE_URL (SQLite): sqlite:///./reporting.db")
     
     if not os.getenv("OUTPUT_DIR"):
         os.environ["OUTPUT_DIR"] = "./outputs"

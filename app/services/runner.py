@@ -1,6 +1,5 @@
 from datetime import datetime
 from sqlalchemy.orm import Session
-from uuid import UUID
 
 from app.models import Report, ReportRun, RunStatus
 from app.services.exporter import export_to_csv
@@ -8,7 +7,7 @@ from app.services.notifier import send_notification
 import os
 
 
-def execute_report(db: Session, report_id: UUID, output_dir: str = None) -> ReportRun:
+def execute_report(db: Session, report_id, output_dir: str = None) -> ReportRun:
     """
     Execute a report: run SQL query, export to CSV, and track the run.
     

@@ -1,12 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel
+import logging
+import traceback
 
 from app.db import get_db
 from app.models import Report
 from app.services.scheduler import schedule_report, reload_scheduler
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -31,9 +35,9 @@ class ReportUpdate(BaseModel):
 
 
 class ReportResponse(BaseModel):
-    id: UUID
+    id: str  # Changed from UUID to str for SQLite compatibility
     name: str
-    description: str = None
+    description: Optional[str] = None  # Allow None for optional description
     sql_query: str
     schedule_cron: str
     output_format: str
@@ -51,7 +55,22 @@ def list_reports(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
     """
     try:
         reports = db.query(Report).offset(skip).limit(limit).all()
-        return reports
+        # Convert to response format manually to ensure proper serialization
+        result = []
+        for r in reports:
+            # Handle None description explicitly
+            desc = r.description if r.description is not None else None
+            result.append(ReportResponse(
+                id=str(r.id),
+                name=r.name,
+                description=desc,
+                sql_query=r.sql_query,
+                schedule_cron=r.schedule_cron,
+                output_format=r.output_format,
+                is_active=r.is_active,
+                created_at=r.created_at.isoformat() if r.created_at else ""
+            ))
+        return result
     except Exception as e:
         error_msg = str(e)
         if "connection" in error_msg.lower() or "database" in error_msg.lower() or "operational" in error_msg.lower():
@@ -63,7 +82,7 @@ def list_reports(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
 
 
 @router.get("/{report_id}", response_model=ReportResponse)
-def get_report(report_id: UUID, db: Session = Depends(get_db)):
+def get_report(report_id: str, db: Session = Depends(get_db)):  # Changed from UUID to str
     """
     Get a specific report by ID.
     """
@@ -73,7 +92,17 @@ def get_report(report_id: UUID, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Report with id {report_id} not found"
         )
-    return report
+    # Convert to response format manually to ensure proper serialization
+    return ReportResponse(
+        id=str(report.id),
+        name=report.name,
+        description=report.description if report.description else None,
+        sql_query=report.sql_query,
+        schedule_cron=report.schedule_cron,
+        output_format=report.output_format,
+        is_active=report.is_active,
+        created_at=report.created_at.isoformat() if report.created_at else ""
+    )
 
 
 @router.post("", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
@@ -97,14 +126,31 @@ def create_report(report_data: ReportCreate, db: Session = Depends(get_db)):
         db.refresh(report)
         
         # Schedule the report if it's active
+        # Wrap in try-except to prevent scheduling errors from breaking report creation
         if report.is_active:
-            schedule_report(report)
+            try:
+                schedule_report(report)
+            except Exception as e:
+                logger.warning(f"Could not schedule report {report.id}: {str(e)}")
+                # Don't fail the entire request if scheduling fails
         
-        return report
+        # Convert to response format manually to ensure proper serialization
+        return ReportResponse(
+            id=str(report.id),
+            name=report.name,
+            description=report.description if report.description else None,  # Handle None properly
+            sql_query=report.sql_query,
+            schedule_cron=report.schedule_cron,
+            output_format=report.output_format,
+            is_active=report.is_active,
+            created_at=report.created_at.isoformat() if report.created_at else ""
+        )
     except Exception as e:
         error_msg = str(e)
         if "connection" in error_msg.lower() or "database" in error_msg.lower() or "operational" in error_msg.lower():
-            error_msg = f"Database connection error: {error_msg}. Please ensure PostgreSQL is running and connected."
+            error_msg = f"Database connection error: {error_msg}. Please check your database configuration."
+        logger.error(f"Error creating report: {error_msg}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_msg
@@ -113,7 +159,7 @@ def create_report(report_data: ReportCreate, db: Session = Depends(get_db)):
 
 @router.put("/{report_id}", response_model=ReportResponse)
 def update_report(
-    report_id: UUID,
+    report_id: str,  # Changed from UUID to str
     report_data: ReportUpdate,
     db: Session = Depends(get_db)
 ):
@@ -147,4 +193,14 @@ def update_report(
     # Reload scheduler to pick up changes
     reload_scheduler()
     
-    return report
+    # Convert to response format manually to ensure proper serialization
+    return ReportResponse(
+        id=str(report.id),
+        name=report.name,
+        description=report.description if report.description else None,
+        sql_query=report.sql_query,
+        schedule_cron=report.schedule_cron,
+        output_format=report.output_format,
+        is_active=report.is_active,
+        created_at=report.created_at.isoformat() if report.created_at else ""
+    )
