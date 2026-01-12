@@ -1,9 +1,11 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.exceptions import RequestValidationError
 import logging
 import os
+import traceback
 
 from app.db import init_db
 from app.api import reports, runs
@@ -35,6 +37,24 @@ app.add_middleware(
 # Include routers
 app.include_router(reports.router)
 app.include_router(runs.router)
+
+
+# Global exception handler to ensure JSON errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Catch all exceptions and return JSON error responses.
+    This ensures the frontend always receives JSON, not HTML.
+    """
+    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(traceback.format_exc())
+    
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "detail": f"Internal server error: {str(exc)}. Please check server logs for details."
+        }
+    )
 
 # Serve frontend static files
 frontend_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend")

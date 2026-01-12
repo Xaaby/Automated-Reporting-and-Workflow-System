@@ -554,14 +554,32 @@
 
                 if (!response.ok) {
                     let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-                    try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.detail || errorMessage;
-                    } catch (e) {
-                        // If not JSON, try to get text
-                        const text = await response.text();
-                        if (text.includes('Database') || text.includes('PostgreSQL') || text.includes('connection')) {
-                            errorMessage = 'Database connection error. Please ensure PostgreSQL is running and connected.';
+                    
+                    // Check content type first
+                    const contentType = response.headers.get('content-type') || '';
+                    
+                    if (contentType.includes('application/json')) {
+                        // Try to parse as JSON
+                        try {
+                            const errorData = await response.json();
+                            errorMessage = errorData.detail || errorData.message || errorMessage;
+                        } catch (e) {
+                            // JSON parse failed, use status text
+                            errorMessage = response.statusText;
+                        }
+                    } else {
+                        // Not JSON - likely HTML error page
+                        try {
+                            const text = await response.text();
+                            if (text.includes('Database') || text.includes('PostgreSQL') || text.includes('connection') || text.includes('SQLite')) {
+                                errorMessage = 'Database error. Please check server logs. If using SQLite, ensure the server was restarted.';
+                            } else if (text.includes('Internal Server Error')) {
+                                errorMessage = 'Server error occurred. Please check that the server is running with the latest code and try again.';
+                            } else {
+                                errorMessage = `Server returned non-JSON response. Status: ${response.status}`;
+                            }
+                        } catch (e) {
+                            errorMessage = `Server error (${response.status}). Please check server status.`;
                         }
                     }
                     throw new Error(errorMessage);
