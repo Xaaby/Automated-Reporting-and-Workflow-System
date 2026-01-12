@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automated Reporting System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .report-item {
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+        }
+
+        .report-item.active {
+            border-left: 4px solid #4caf50;
+        }
+
+        .report-item.inactive {
+            border-left: 4px solid #9e9e9e;
+            opacity: 0.7;
+        }
+
+        .report-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .report-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-active {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-inactive {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .status-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-failed {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-running {
+            background: #ff9800;
+            color: white;
+        }
+
+        .status-queued {
+            background: #2196f3;
+            color: white;
+        }
+
+        .report-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+
+        .btn-success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #45a049;
+        }
+
+        .btn-danger {
+            background: #f44336;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #da190b;
+        }
+
+        .btn-secondary {
+            background: #9e9e9e;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #757575;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .run-item {
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            background: #f9f9f9;
+        }
+
+        .run-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .run-time {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .run-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 100px;
+            font-family: monospace;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Automated Reporting System</h1>
+            <p class="subtitle">Manage and execute scheduled SQL reports</p>
+        </header>
+
+        <div class="main-content">
+            <div class="card">
+                <h2>Reports</h2>
+                <div id="reports-list">
+                    <div class="loading">Loading reports...</div>
+                </div>
+                <button class="btn-primary" onclick="showCreateForm()" style="width: 100%; margin-top: 15px;">
+                    + Create New Report
+                </button>
+            </div>
+
+            <div class="card">
+                <h2>Run History</h2>
+                <div id="runs-list">
+                    <div class="loading">Select a report to view run history</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Report Modal -->
+        <div id="create-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center;">
+            <div class="card" style="max-width: 600px; max-height: 90vh; overflow-y: auto; margin: 20px;">
+                <h2>Create New Report</h2>
+                <div id="create-message"></div>
+                <form id="create-form" onsubmit="createReport(event)">
+                    <div class="form-group">
+                        <label>Report Name *</label>
+                        <input type="text" id="report-name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="report-description"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>SQL Query *</label>
+                        <textarea id="report-query" required placeholder="SELECT * FROM table_name LIMIT 10;"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Cron Schedule *</label>
+                        <input type="text" id="report-cron" required placeholder="0 9 * * * (Daily at 9 AM)">
+                        <small style="color: #666; font-size: 12px;">Format: minute hour day month day_of_week</small>
+                    </div>
+                    <div class="form-group">
+                        <label>Active</label>
+                        <select id="report-active">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <button type="submit" class="btn-primary">Create Report</button>
+                        <button type="button" class="btn-secondary" onclick="hideCreateForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+
+        let selectedReportId = null;
+
+        // Load reports on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            loadReports();
+        });
+
+        async function loadReports() {
+            try {
+                const response = await fetch(`${API_BASE}/reports`);
+                const reports = await response.json();
+                
+                const reportsList = document.getElementById('reports-list');
+                if (reports.length === 0) {
+                    reportsList.innerHTML = '<div class="loading">No reports found. Create one to get started!</div>';
+                    return;
+                }
+
+                reportsList.innerHTML = reports.map(report => `
+                    <div class="report-item ${report.is_active ? 'active' : 'inactive'}">
+                        <div class="report-header">
+                            <span class="report-name">${report.name}</span>
+                            <span class="status-badge ${report.is_active ? 'status-active' : 'status-inactive'}">
+                                ${report.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                        <div style="font-size: 12px; color: #666; margin-bottom: 10px;">
+                            ${report.description || 'No description'}
+                        </div>
+                        <div style="font-size: 11px; color: #999; margin-bottom: 10px;">
+                            Schedule: ${report.schedule_cron}
+                        </div>
+                        <div class="report-actions">
+                            <button class="btn-primary" onclick="triggerRun('${report.id}')">Run Now</button>
+                            <button class="btn-success" onclick="viewRuns('${report.id}')">View History</button>
+                            <button class="btn-secondary" onclick="toggleReport('${report.id}', ${!report.is_active})">
+                                ${report.is_active ? 'Disable' : 'Enable'}
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('reports-list').innerHTML = 
+                    `<div class="error">Error loading reports: ${error.message}</div>`;
+            }
+        }
+
+        async function triggerRun(reportId) {
+            try {
+                const response = await fetch(`${API_BASE}/reports/${reportId}/run`, {
+                    method: 'POST'
+                });
+                const run = await response.json();
+                alert(`Report run started! Status: ${run.status}`);
+                if (selectedReportId === reportId) {
+                    viewRuns(reportId);
+                }
+            } catch (error) {
+                alert(`Error triggering run: ${error.message}`);
+            }
+        }
+
+        async function viewRuns(reportId) {
+            selectedReportId = reportId;
+            try {
+                const response = await fetch(`${API_BASE}/reports/${reportId}/runs`);
+                const runs = await response.json();
+                
+                const runsList = document.getElementById('runs-list');
+                if (runs.length === 0) {
+                    runsList.innerHTML = '<div class="loading">No runs found for this report</div>';
+                    return;
+                }
+
+                runsList.innerHTML = runs.map(run => `
+                    <div class="run-item">
+                        <div class="run-header">
+                            <span class="status-badge status-${run.status.toLowerCase()}">${run.status}</span>
+                            <span class="run-time">${new Date(run.started_at).toLocaleString()}</span>
+                        </div>
+                        ${run.finished_at ? `<div class="run-details">Finished: ${new Date(run.finished_at).toLocaleString()}</div>` : ''}
+                        ${run.row_count !== null ? `<div class="run-details">Rows: ${run.row_count}</div>` : ''}
+                        ${run.error_message ? `<div class="run-details" style="color: #f44336;">Error: ${run.error_message}</div>` : ''}
+                        ${run.status === 'SUCCESS' && run.output_path ? `
+                            <button class="btn-success" onclick="downloadRun('${run.id}')" style="margin-top: 8px; font-size: 12px;">
+                                Download CSV
+                            </button>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } catch (error) {
+                document.getElementById('runs-list').innerHTML = 
+                    `<div class="error">Error loading runs: ${error.message}</div>`;
+            }
+        }
+
+        async function downloadRun(runId) {
+            try {
+                const response = await fetch(`${API_BASE}/runs/${runId}/download`);
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `report_${runId}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } catch (error) {
+                alert(`Error downloading file: ${error.message}`);
+            }
+        }
+
+        async function toggleReport(reportId, isActive) {
+            try {
+                const response = await fetch(`${API_BASE}/reports/${reportId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: isActive })
+                });
+                await response.json();
+                loadReports();
+            } catch (error) {
+                alert(`Error updating report: ${error.message}`);
+            }
+        }
+
+        function showCreateForm() {
+            document.getElementById('create-modal').style.display = 'flex';
+        }
+
+        function hideCreateForm() {
+            document.getElementById('create-modal').style.display = 'none';
+            document.getElementById('create-form').reset();
+            document.getElementById('create-message').innerHTML = '';
+        }
+
+        async function createReport(event) {
+            event.preventDefault();
+            const messageDiv = document.getElementById('create-message');
+            
+            try {
+                const reportData = {
+                    name: document.getElementById('report-name').value,
+                    description: document.getElementById('report-description').value,
+                    sql_query: document.getElementById('report-query').value,
+                    schedule_cron: document.getElementById('report-cron').value,
+                    output_format: 'CSV',
+                    is_active: document.getElementById('report-active').value === 'true'
+                };
+
+                const response = await fetch(`${API_BASE}/reports`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(reportData)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create report');
+                }
+
+                messageDiv.innerHTML = '<div class="success">Report created successfully!</div>';
+                setTimeout(() => {
+                    hideCreateForm();
+                    loadReports();
+                }, 1500);
+            } catch (error) {
+                messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>
