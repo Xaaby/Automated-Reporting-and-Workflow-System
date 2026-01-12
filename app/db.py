@@ -9,15 +9,22 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Get database URL from environment
+# Default to SQLite for easy testing (no PostgreSQL required)
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://reporting_user:reporting_pass@localhost:5432/reporting_db"
+    "sqlite:///./reporting.db"  # SQLite database file in project root
 )
 
 # Create engine with connection pooling
+# SQLite requires check_same_thread=False for FastAPI
+connect_args = {}
+if DATABASE_URL.startswith("sqlite"):
+    connect_args = {"check_same_thread": False}
+
 engine = create_engine(
     DATABASE_URL,
-    poolclass=NullPool,  # Use NullPool for simpler connection management
+    poolclass=NullPool if not DATABASE_URL.startswith("sqlite") else None,  # SQLite doesn't need NullPool
+    connect_args=connect_args,
     echo=False  # Set to True for SQL query logging
 )
 
@@ -53,4 +60,7 @@ def init_db():
         logger = logging.getLogger(__name__)
         logger.warning(f"Could not initialize database tables: {str(e)}")
         logger.warning("The application will continue, but database operations may fail.")
-        logger.warning("Please ensure PostgreSQL is running and DATABASE_URL is correct.")
+        if DATABASE_URL.startswith("sqlite"):
+            logger.warning("Please ensure the database file directory is writable.")
+        else:
+            logger.warning("Please ensure the database is running and DATABASE_URL is correct.")

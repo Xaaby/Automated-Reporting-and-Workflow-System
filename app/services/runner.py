@@ -30,9 +30,9 @@ def execute_report(db: Session, report_id: UUID, output_dir: str = None) -> Repo
     
     # Create run record with QUEUED status
     report_run = ReportRun(
-        report_id=report_id,
+        report_id=str(report_id),
         started_at=datetime.now(),
-        status=RunStatus.QUEUED
+        status=RunStatus.QUEUED.value
     )
     db.add(report_run)
     db.commit()
@@ -40,7 +40,7 @@ def execute_report(db: Session, report_id: UUID, output_dir: str = None) -> Repo
     
     try:
         # Update status to RUNNING
-        report_run.status = RunStatus.RUNNING
+        report_run.status = RunStatus.RUNNING.value
         db.commit()
         
         # Execute query and export to CSV
@@ -52,7 +52,7 @@ def execute_report(db: Session, report_id: UUID, output_dir: str = None) -> Repo
         )
         
         # Update run with success details
-        report_run.status = RunStatus.SUCCESS
+        report_run.status = RunStatus.SUCCESS.value
         report_run.finished_at = datetime.now()
         report_run.row_count = row_count
         report_run.output_path = output_path
@@ -67,7 +67,7 @@ def execute_report(db: Session, report_id: UUID, output_dir: str = None) -> Repo
         
     except Exception as e:
         # Update run with failure details
-        report_run.status = RunStatus.FAILED
+        report_run.status = RunStatus.FAILED.value
         report_run.finished_at = datetime.now()
         report_run.error_message = str(e)
         db.commit()

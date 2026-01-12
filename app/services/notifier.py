@@ -16,28 +16,31 @@ def send_notification(db: Session, report_run: ReportRun):
         report_run: ReportRun object to send notification for
     """
     # Determine notification message based on status
-    if report_run.status.value == "SUCCESS":
+    # Handle both enum and string status values
+    status_str = report_run.status if isinstance(report_run.status, str) else report_run.status.value
+    
+    if status_str == "SUCCESS":
         message = (
             f"Report '{report_run.report.name}' completed successfully. "
             f"Rows exported: {report_run.row_count}. "
             f"Output: {report_run.output_path}"
         )
-        status = NotificationStatus.SENT
-    elif report_run.status.value == "FAILED":
+        notif_status = NotificationStatus.SENT.value
+    elif status_str == "FAILED":
         message = (
             f"Report '{report_run.report.name}' failed. "
             f"Error: {report_run.error_message}"
         )
-        status = NotificationStatus.SENT  # Still log it as "sent" to notification log
+        notif_status = NotificationStatus.SENT.value  # Still log it as "sent" to notification log
     else:
-        message = f"Report '{report_run.report.name}' status: {report_run.status.value}"
-        status = NotificationStatus.SENT
+        message = f"Report '{report_run.report.name}' status: {status_str}"
+        notif_status = NotificationStatus.SENT.value
     
     # Create notification log entry
     notification = NotificationLog(
-        report_run_id=report_run.id,
-        channel=NotificationChannel.LOG,
-        status=status,
+        report_run_id=str(report_run.id),
+        channel=NotificationChannel.LOG.value,
+        status=notif_status,
         message=message
     )
     

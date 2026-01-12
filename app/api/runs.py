@@ -33,22 +33,27 @@ def trigger_manual_run(report_id: UUID, db: Session = Depends(get_db)):
     """
     Trigger a manual run of a report.
     """
-    # Check if report exists
-    report = db.query(Report).filter(Report.id == report_id).first()
-    if not report:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Report with id {report_id} not found"
-        )
-    
     try:
+        # Check if report exists
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Report with id {report_id} not found"
+            )
+        
         # Execute the report
         report_run = execute_report(db, report_id)
         return report_run
+    except HTTPException:
+        raise
     except Exception as e:
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "database" in error_msg.lower():
+            error_msg = f"Database connection error: {error_msg}. Please ensure PostgreSQL is running and connected."
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error executing report: {str(e)}"
+            detail=error_msg
         )
 
 
@@ -62,24 +67,32 @@ def get_report_runs(
     """
     Get run history for a specific report.
     """
-    # Check if report exists
-    report = db.query(Report).filter(Report.id == report_id).first()
-    if not report:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Report with id {report_id} not found"
+    try:
+        # Check if report exists
+        report = db.query(Report).filter(Report.id == report_id).first()
+        if not report:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Report with id {report_id} not found"
+            )
+        
+        runs = (
+            db.query(ReportRun)
+            .filter(ReportRun.report_id == report_id)
+            .order_by(ReportRun.started_at.desc())
+            .offset(skip)
+            .limit(limit)
+            .all()
         )
-    
-    runs = (
-        db.query(ReportRun)
-        .filter(ReportRun.report_id == report_id)
-        .order_by(ReportRun.started_at.desc())
-        .offset(skip)
-        .limit(limit)
-        .all()
-    )
-    
-    return runs
+        
+        return runs
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database error: {str(e)}. Please ensure PostgreSQL is running and connected."
+        )
 
 
 @router.get("/runs/{run_id}", response_model=ReportRunResponse)
@@ -109,10 +122,12 @@ def download_run_output(run_id: UUID, db: Session = Depends(get_db)):
             detail=f"Run with id {run_id} not found"
         )
     
-    if run.status != RunStatus.SUCCESS:
+    # Handle both enum and string status values
+    run_status = run.status if isinstance(run.status, str) else run.status.value
+    if run_status != RunStatus.SUCCESS.value:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Run {run_id} did not complete successfully. Status: {run.status.value}"
+            detail=f"Run {run_id} did not complete successfully. Status: {run_status}"
         )
     
     if not run.output_path or not os.path.exists(run.output_path):

@@ -49,8 +49,17 @@ def list_reports(skip: int = 0, limit: int = 100, db: Session = Depends(get_db))
     """
     List all reports.
     """
-    reports = db.query(Report).offset(skip).limit(limit).all()
-    return reports
+    try:
+        reports = db.query(Report).offset(skip).limit(limit).all()
+        return reports
+    except Exception as e:
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "database" in error_msg.lower() or "operational" in error_msg.lower():
+            error_msg = f"Database connection error: {error_msg}. Please check your database configuration."
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg
+        )
 
 
 @router.get("/{report_id}", response_model=ReportResponse)
@@ -72,25 +81,34 @@ def create_report(report_data: ReportCreate, db: Session = Depends(get_db)):
     """
     Create a new report definition.
     """
-    # Create new report
-    report = Report(
-        name=report_data.name,
-        description=report_data.description,
-        sql_query=report_data.sql_query,
-        schedule_cron=report_data.schedule_cron,
-        output_format=report_data.output_format,
-        is_active=report_data.is_active
-    )
-    
-    db.add(report)
-    db.commit()
-    db.refresh(report)
-    
-    # Schedule the report if it's active
-    if report.is_active:
-        schedule_report(report)
-    
-    return report
+    try:
+        # Create new report
+        report = Report(
+            name=report_data.name,
+            description=report_data.description,
+            sql_query=report_data.sql_query,
+            schedule_cron=report_data.schedule_cron,
+            output_format=report_data.output_format,
+            is_active=report_data.is_active
+        )
+        
+        db.add(report)
+        db.commit()
+        db.refresh(report)
+        
+        # Schedule the report if it's active
+        if report.is_active:
+            schedule_report(report)
+        
+        return report
+    except Exception as e:
+        error_msg = str(e)
+        if "connection" in error_msg.lower() or "database" in error_msg.lower() or "operational" in error_msg.lower():
+            error_msg = f"Database connection error: {error_msg}. Please ensure PostgreSQL is running and connected."
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=error_msg
+        )
 
 
 @router.put("/{report_id}", response_model=ReportResponse)

@@ -340,6 +340,30 @@
         async function loadReports() {
             try {
                 const response = await fetch(`${API_BASE}/reports`);
+                
+                // Check if response is OK
+                if (!response.ok) {
+                    // Try to parse error as JSON
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        // If not JSON, use status text
+                        const text = await response.text();
+                        if (text.includes('Database error') || text.includes('PostgreSQL')) {
+                            errorMessage = 'Database connection error. Please ensure PostgreSQL is running.';
+                        }
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                // Check content type before parsing
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Server returned non-JSON response. Please check backend status.');
+                }
+                
                 const reports = await response.json();
                 
                 const reportsList = document.getElementById('reports-list');
@@ -372,8 +396,16 @@
                     </div>
                 `).join('');
             } catch (error) {
-                document.getElementById('reports-list').innerHTML = 
-                    `<div class="error">Error loading reports: ${error.message}</div>`;
+                const reportsList = document.getElementById('reports-list');
+                reportsList.innerHTML = 
+                    `<div class="error">
+                        <strong>Error loading reports:</strong><br>
+                        ${error.message}<br>
+                        <small style="margin-top: 10px; display: block;">
+                            Make sure the backend server is running and PostgreSQL is connected.
+                            Check <a href="/docs" target="_blank">API docs</a> for more info.
+                        </small>
+                    </div>`;
             }
         }
 
@@ -382,6 +414,18 @@
                 const response = await fetch(`${API_BASE}/reports/${reportId}/run`, {
                     method: 'POST'
                 });
+                
+                if (!response.ok) {
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = response.statusText;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
                 const run = await response.json();
                 alert(`Report run started! Status: ${run.status}`);
                 if (selectedReportId === reportId) {
@@ -396,6 +440,18 @@
             selectedReportId = reportId;
             try {
                 const response = await fetch(`${API_BASE}/reports/${reportId}/runs`);
+                
+                if (!response.ok) {
+                    let errorMessage = `HTTP ${response.status}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        errorMessage = response.statusText;
+                    }
+                    throw new Error(errorMessage);
+                }
+                
                 const runs = await response.json();
                 
                 const runsList = document.getElementById('runs-list');
@@ -471,6 +527,15 @@
             event.preventDefault();
             const messageDiv = document.getElementById('create-message');
             
+            // Clear previous messages
+            messageDiv.innerHTML = '';
+            
+            // Show loading state
+            const submitButton = event.target.querySelector('button[type="submit"]');
+            const originalText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Creating...';
+            
             try {
                 const reportData = {
                     name: document.getElementById('report-name').value,
@@ -488,17 +553,42 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Failed to create report');
+                    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.detail || errorMessage;
+                    } catch (e) {
+                        // If not JSON, try to get text
+                        const text = await response.text();
+                        if (text.includes('Database') || text.includes('PostgreSQL') || text.includes('connection')) {
+                            errorMessage = 'Database connection error. Please ensure PostgreSQL is running and connected.';
+                        }
+                    }
+                    throw new Error(errorMessage);
                 }
 
-                messageDiv.innerHTML = '<div class="success">Report created successfully!</div>';
+                const report = await response.json();
+                messageDiv.innerHTML = '<div class="success">Report created successfully! ID: ' + report.id.substring(0, 8) + '...</div>';
+                
                 setTimeout(() => {
                     hideCreateForm();
                     loadReports();
                 }, 1500);
             } catch (error) {
-                messageDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                let errorHtml = `<div class="error">
+                    <strong>Error creating report:</strong><br>
+                    ${error.message}<br>
+                    <small style="margin-top: 10px; display: block;">
+                        ${error.message.includes('Database') || error.message.includes('PostgreSQL') || error.message.includes('connection') 
+                            ? 'Please check that PostgreSQL is running. See SETUP.md for instructions.' 
+                            : 'Please check your input and try again.'}
+                    </small>
+                </div>`;
+                messageDiv.innerHTML = errorHtml;
+            } finally {
+                // Restore button state
+                submitButton.disabled = false;
+                submitButton.textContent = originalText;
             }
         }
     </script>
